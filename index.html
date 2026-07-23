@@ -161,7 +161,7 @@ table input[type=number]{width:58px;padding:4px 5px}
       <label class="fld"><span class="lb">脂肪 %</span><input type="number" id="s_f"></label>
       <div class="row" style="margin-top:8px;justify-content:space-between">
         <span class="muted" id="s_pctsum"></span>
-        <span class="muted">水果 <input type="number" id="s_fruit" step="0.5" style="width:56px"> 份 · 蔬菜 <input type="number" id="s_veg" step="0.5" style="width:56px"> 份</span>
+        <span class="muted">水果 <input type="text" inputmode="decimal" id="s_fruit" style="width:56px"> 份 · 蔬菜 <input type="text" inputmode="decimal" id="s_veg" style="width:56px"> 份</span>
       </div>
     </div>
 
@@ -175,7 +175,7 @@ table input[type=number]{width:58px;padding:4px 5px}
       <label class="fld"><span class="lb">脂肪 %</span><input type="number" id="l_f"></label>
       <div class="row" style="margin-top:8px;justify-content:space-between">
         <span class="muted" id="l_pctsum"></span>
-        <span class="muted">水果 <input type="number" id="l_fruit" step="0.5" style="width:56px"> 份 · 蔬菜 <input type="number" id="l_veg" step="0.5" style="width:56px"> 份</span>
+        <span class="muted">水果 <input type="text" inputmode="decimal" id="l_fruit" style="width:56px"> 份 · 蔬菜 <input type="text" inputmode="decimal" id="l_veg" style="width:56px"> 份</span>
       </div>
     </div>
     <div class="card" id="lowResult"></div>
@@ -452,20 +452,30 @@ function go(t){
 
 /* ============ 設定頁 ============ */
 function renderSetup(){
+  // 進入分頁時才寫入欄位值（打字過程中不會重寫，避免小數點被吃掉/游標跳動）
   const n=S.templates.normal,l=S.templates.low;
   const set=(id,v)=>document.getElementById(id).value=v;
   set('s_kcal',n.kcal);set('s_c',n.c);set('s_p',n.p);set('s_f',n.f);set('s_fruit',n.fruit);set('s_veg',n.veg);
   set('l_kcal',l.kcal);set('l_c',l.c);set('l_p',l.p);set('l_f',l.f);set('l_fruit',l.fruit);set('l_veg',l.veg);
-  document.getElementById('s_pctsum').textContent='合計 '+(n.c+n.p+n.f)+'%'+((n.c+n.p+n.f)!==100?' ⚠ 不是100%':' ✓');
-  document.getElementById('l_pctsum').textContent='合計 '+(l.c+l.p+l.f)+'%'+((l.c+l.p+l.f)!==100?' ⚠ 不是100%':' ✓');
-  renderSixTable('normalResult',n,'正常日');
-  renderSixTable('lowResult',l,'低熱量日');
+  refreshSetupResults();
   renderProfile();
 }
+// 只更新下方計算結果，不去動使用者正在打字的欄位
+function refreshSetupResults(){
+  const n=S.templates.normal,l=S.templates.low;
+  document.getElementById('s_pctsum').textContent='合計 '+r1(n.c+n.p+n.f)+'%'+(r1(n.c+n.p+n.f)!==100?' ⚠ 不是100%':' ✓');
+  document.getElementById('l_pctsum').textContent='合計 '+r1(l.c+l.p+l.f)+'%'+(r1(l.c+l.p+l.f)!==100?' ⚠ 不是100%':' ✓');
+  renderSixTable('normalResult',n,'正常日');
+  renderSixTable('lowResult',l,'低熱量日');
+}
 function renderProfile(){
+  // 進入分頁時才寫欄位值；打字過程只更新結果，不重寫欄位
   const p=S.profile||{};
   const g=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
   g('pf_sex',p.sex||'F');g('pf_age',p.age||'');g('pf_h',p.height||'');g('pf_w',p.weight||'');g('pf_act',p.activity||1.2);
+  renderProfileResult();
+}
+function renderProfileResult(){
   const el=document.getElementById('pf_result');if(!el)return;
   const b=bmr(),t=tdee();
   if(b==null){el.innerHTML='<div class="muted" style="margin-top:10px">填完性別、年齡、身高、體重就會自動算出 BMR 與 TDEE。</div>';return;}
@@ -477,7 +487,7 @@ function renderProfile(){
 function saveProfile(){
   const v=id=>document.getElementById(id).value;
   S.profile={sex:v('pf_sex'),age:v('pf_age'),height:v('pf_h'),weight:v('pf_w'),activity:parseFloat(v('pf_act'))||1.2};
-  save();renderProfile();
+  save();renderProfileResult();
 }
 function bindProfile(){
   ['pf_sex','pf_age','pf_h','pf_w','pf_act'].forEach(id=>{
@@ -513,7 +523,7 @@ function bindSetup(){
              ['l_kcal','low','kcal'],['l_c','low','c'],['l_p','low','p'],['l_f','low','f'],['l_fruit','low','fruit'],['l_veg','low','veg']];
   map.forEach(([id,tpl,key])=>{
     document.getElementById(id).addEventListener('input',e=>{
-      S.templates[tpl][key]=parseFloat(e.target.value)||0;save();renderSetup();
+      S.templates[tpl][key]=parseFloat(e.target.value)||0;save();refreshSetupResults();
     });
   });
 }
