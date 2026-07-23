@@ -214,6 +214,11 @@ table input[type=number]{width:58px;padding:4px 5px}
       </div>
       <div class="muted small" style="margin-top:8px">同一個瀏覽器開多個分頁會自動同步，不用擔心開很多頁會亂。匯入會覆蓋目前資料，建議先匯出存一份再匯入。</div>
     </div>
+
+    <div class="card">
+      <h2>☁️ 雲端同步 <span class="tag">跨裝置用同一份資料</span></h2>
+      <div id="cloudBox"></div>
+    </div>
   </section>
 
   <!-- 食材 -->
@@ -302,6 +307,11 @@ table input[type=number]{width:58px;padding:4px 5px}
   <button data-t="prep" onclick="go('prep')"><span class="ic">🍱</span>備餐</button>
   <button data-t="records" onclick="go('records')"><span class="ic">📅</span>紀錄</button>
 </div>
+
+<!-- Firebase（雲端同步用；沒網路時會略過，app 仍可離線使用） -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <script>
 /* ============ 群組定義（每份營養素） ============ */
@@ -403,7 +413,13 @@ let selDate=todayStr();
 let calMonth=firstOfMonth(new Date());
 
 function load(){try{const j=JSON.parse(localStorage.getItem('dietApp'));if(j)return j;}catch(e){}return JSON.parse(JSON.stringify(DEF));}
-function save(){S.custom=CUSTOM;localStorage.setItem('dietApp',JSON.stringify(S));}
+let applyingRemote=false; // 正在套用雲端資料時，不要再把時間戳更新或推回雲端
+function save(){
+  S.custom=CUSTOM;
+  if(!applyingRemote)S.updatedAt=Math.max(Date.now(),(S.updatedAt||0)+1); // 單調遞增，避免裝置時鐘差造成新編輯被當成舊的
+  localStorage.setItem('dietApp',JSON.stringify(S));
+  if(!applyingRemote)scheduleCloudPush();
+}
 function todayStr(){return dstr(new Date());}
 function dstr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function parseD(s){const[a,b,c]=s.split('-').map(Number);return new Date(a,b-1,c);}
@@ -459,6 +475,7 @@ function renderSetup(){
   set('l_kcal',l.kcal);set('l_c',l.c);set('l_p',l.p);set('l_f',l.f);set('l_fruit',l.fruit);set('l_veg',l.veg);
   refreshSetupResults();
   renderProfile();
+  renderCloud();
 }
 // 只更新下方計算結果，不去動使用者正在打字的欄位
 function refreshSetupResults(){
@@ -709,33 +726,39 @@ function renderDay(){
   updateDayTotalCard();
 }
 /* ---- 運動 ---- */
+const EXT=[['gym','健身房','🏋️'],['gymcardio','健身房有氧','🔥'],['treadmill','居家跑步機','🏃'],['spin','居家飛輪','🚴'],['walk','散步','🚶'],['swim','游泳','🏊'],['pilates','皮拉提斯','🤸'],['yoga','瑜珈','🧘'],['other','其他','💪']];
+function extOf(k){return EXT.find(e=>e[0]===k);}
+function exIcon(e){const t=extOf(e.type);return t?t[2]:'💪';}
+function exTitle(e){const t=extOf(e.type);const base=t?t[1]:(e.name||'運動');return base+(t&&e.name?' · '+e.name:'');}
+function dayExIcons(d){if(!d||!d.ex||!d.ex.length)return '';return [...new Set(d.ex.map(exIcon))].slice(0,3).join('');}
 function exerciseHTML(date){
   const d=getDay(date);const ex=d.ex||[];const burned=burnedOf(date);
   let h=`<div class="meal" style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
     <div class="mh"><span class="mt">🏃 運動${burned?` <span class="mk">消耗 ${r0(burned)} 大卡</span>`:''}</span></div>`;
   ex.forEach((e,i)=>{
     h+=`<div class="fooditem">
-      <input class="fn" style="border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-size:13.5px" value="${(e.name||'').replace(/"/g,'&quot;')}" placeholder="運動種類" onchange="editExName(${i},this.value)">
+      <span class="fn">${exIcon(e)} ${exTitle(e)}</span>
       <input class="num" type="number" step="1" value="${e.kcal!=null&&e.kcal!==''?e.kcal:''}" placeholder="—" title="消耗大卡(可不填)" onchange="editExKcal(${i},this.value)">
       <span class="unitlb">卡</span>
       <button class="del" onclick="delEx(${i})">✕</button>
     </div>`;
   });
-  h+=`<div class="addbar">
-      <input type="text" id="ex-name" class="wide" style="flex:1" placeholder="運動種類（例：跑步、重訓、瑜珈）">
-      <input type="number" id="ex-kcal" style="width:78px" placeholder="消耗卡">
+  h+=`<div class="addbar" style="flex-wrap:wrap;gap:6px">
+      <select id="ex-type">${EXT.map(([k,l,ic])=>`<option value="${k}">${ic} ${l}</option>`).join('')}</select>
+      <input type="text" id="ex-name" style="flex:1;min-width:90px" placeholder="細項（例：臀腿、上肢，可空）">
+      <input type="number" id="ex-kcal" style="width:74px" placeholder="消耗卡">
       <button class="btn sm" onclick="addEx()">加入</button></div>
-    <div class="muted small" style="margin-top:4px">一天可加多項運動，消耗熱量可不填。</div></div>`;
+    <div class="muted small" style="margin-top:4px">選運動種類→（健身房可填細項）→消耗卡可不填。一天可加多項。</div></div>`;
   return h;
 }
 function addEx(){
+  const type=document.getElementById('ex-type').value;
   const name=document.getElementById('ex-name').value.trim();
   const kc=document.getElementById('ex-kcal').value;
-  if(!name&&kc==='')return;
-  const d=getDay(selDate);d.ex=d.ex||[];d.ex.push({name,kcal:kc===''?null:parseFloat(kc)});save();renderMenu();
+  const d=getDay(selDate);d.ex=d.ex||[];
+  d.ex.push({type,name,kcal:kc===''?null:parseFloat(kc)});save();renderMenu();
 }
 function delEx(i){getDay(selDate).ex.splice(i,1);save();renderMenu();}
-function editExName(i,v){getDay(selDate).ex[i].name=v;save();}
 function editExKcal(i,v){getDay(selDate).ex[i].kcal=v===''?null:parseFloat(v);save();renderDay();}
 function foodOptions(){
   const favs=allFoods().filter(f=>S.fav[f.id]);
@@ -963,9 +986,9 @@ function renderRecords(){
     const d=S.days[date];const t=d?d.type:null;
     const tot=d?dayTotals(date):null;
     const cls=t?t.charAt(0):'';const typeCls=t==='normal'?'n':t==='low'?'l':t==='cheat'?'c':'';
-    const hasEx=d&&d.ex&&d.ex.length;
+    const exIco=dayExIcons(d);
     grid.innerHTML+=`<div class="cell ${typeCls} ${date===todayStr()?'today':''} ${date===selDate?'sel':''}" onclick="pickRec('${date}')">
-      <div class="cd">${dnum}</div>${hasEx?'<div style="position:absolute;top:2px;right:3px;font-size:9px">🏃</div>':''}${tot&&tot.kcal?`<div class="ck">${r0(tot.kcal)}</div>`:''}</div>`;
+      <div class="cd">${dnum}</div>${exIco?`<div style="position:absolute;top:1px;right:2px;font-size:10px;line-height:1;letter-spacing:-1px">${exIco}</div>`:''}${tot&&tot.kcal?`<div class="ck">${r0(tot.kcal)}</div>`:''}</div>`;
   }
   renderRecDetail(selDate);
 }
@@ -990,7 +1013,7 @@ function renderRecDetail(date){
   }
   if(d.ex&&d.ex.length){
     html+=`<div style="margin-top:10px"><b class="small">🏃 運動</b>`;
-    d.ex.forEach(e=>html+=`<div class="shopline"><span>${(e.name||'運動').replace(/</g,'&lt;')}</span><span class="amt">${e.kcal!=null&&e.kcal!==''?r0(e.kcal)+'卡':'—'}</span></div>`);
+    d.ex.forEach(e=>html+=`<div class="shopline"><span>${exIcon(e)} ${exTitle(e).replace(/</g,'&lt;')}</span><span class="amt">${e.kcal!=null&&e.kcal!==''?r0(e.kcal)+'卡':'—'}</span></div>`);
     html+='</div>';
   }
   html+=`<div style="margin-top:12px"><button class="btn sm sec" onclick="gotoDay('${date}')">編輯這天 →</button></div>`;
@@ -1037,9 +1060,129 @@ window.addEventListener('storage',e=>{
   }
 });
 
+/* ============ 雲端同步（Firebase / 帳號登入） ============ */
+let fbApp=null,fbAuth=null,fbDb=null,fbUser=null,fbUnsub=null,cloudTimer=null,cloudStatus='';
+function normalizeState(){if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};CUSTOM=S.custom||[];}
+function parseFbConfig(text){
+  const get=k=>{const m=text.match(new RegExp(k+'\\s*:\\s*[\"\\x27]([^\"\\x27]+)[\"\\x27]'));return m?m[1]:'';};
+  const cfg={apiKey:get('apiKey'),authDomain:get('authDomain'),projectId:get('projectId'),
+    storageBucket:get('storageBucket'),messagingSenderId:get('messagingSenderId'),appId:get('appId')};
+  return (cfg.apiKey&&cfg.projectId&&cfg.appId)?cfg:null;
+}
+function initFirebase(){
+  const cfgStr=localStorage.getItem('fbConfig');
+  if(!cfgStr)return false;
+  if(typeof firebase==='undefined')return false; // SDK 未載入（可能沒網路）
+  try{
+    const cfg=JSON.parse(cfgStr);
+    if(!fbApp)fbApp=firebase.initializeApp(cfg);
+    fbAuth=firebase.auth();fbDb=firebase.firestore();
+    fbAuth.onAuthStateChanged(onAuthChange);
+    return true;
+  }catch(e){console.warn('firebase init',e);return false;}
+}
+function saveFbConfig(){
+  const text=document.getElementById('fb-config').value.trim();
+  const cfg=parseFbConfig(text);
+  if(!cfg){alert('讀不到設定，請把 Firebase 給你的整段 firebaseConfig（含 apiKey、projectId、appId）貼進來。');return;}
+  localStorage.setItem('fbConfig',JSON.stringify(cfg));
+  if(initFirebase()){cloudStatus='設定完成，請登入或註冊帳號';renderCloud();}
+  else alert('設定已存，但目前連不到 Firebase（可能沒網路）。有網路時重新整理即可。');
+}
+function clearFbConfig(){
+  if(!confirm('要移除雲端同步設定嗎？（本機資料不會被刪除）'))return;
+  if(fbUser&&fbAuth)fbAuth.signOut();
+  localStorage.removeItem('fbConfig');fbApp=null;fbAuth=null;fbDb=null;fbUser=null;
+  cloudStatus='';renderCloud();
+}
+function cloudDoc(){return fbDb.collection('planners').doc(fbUser.uid);}
+async function onAuthChange(user){
+  fbUser=user;
+  if(fbUnsub){fbUnsub();fbUnsub=null;}
+  if(user){
+    cloudStatus='登入中，同步資料…';renderCloud();
+    try{
+      const snap=await cloudDoc().get();
+      if(snap.exists){
+        const remote=JSON.parse(snap.data().data||'{}');
+        if((remote.updatedAt||0)>(S.updatedAt||0)){
+          applyingRemote=true;S=remote;normalizeState();localStorage.setItem('dietApp',JSON.stringify(S));applyingRemote=false;
+        }else{cloudPush();} // 本機較新→上傳
+      }else{cloudPush();} // 雲端還沒有→上傳本機
+    }catch(e){console.warn(e);}
+    startCloudListener();
+    cloudStatus='已連線，資料會自動同步';
+    renderCloud();rerenderCurrent();
+  }else{
+    cloudStatus='';renderCloud();
+  }
+}
+function startCloudListener(){
+  if(!fbUser)return;
+  fbUnsub=cloudDoc().onSnapshot(snap=>{
+    if(!snap.exists||!snap.metadata||snap.metadata.hasPendingWrites)return; // 略過自己剛寫入的
+    try{const remote=JSON.parse(snap.data().data||'{}');
+      if((remote.updatedAt||0)>(S.updatedAt||0)){
+        applyingRemote=true;S=remote;normalizeState();localStorage.setItem('dietApp',JSON.stringify(S));applyingRemote=false;
+        rerenderCurrent();
+      }
+    }catch(e){}
+  });
+}
+function scheduleCloudPush(){
+  if(!fbUser||!fbDb)return;
+  clearTimeout(cloudTimer);
+  cloudTimer=setTimeout(cloudPush,1200);
+}
+function cloudPush(){
+  if(!fbUser||!fbDb)return;
+  cloudDoc().set({data:JSON.stringify(S),updatedAt:S.updatedAt||Date.now()}).catch(e=>console.warn('push',e));
+}
+function cloudSignIn(register){
+  if(!fbAuth){alert('請先貼上並儲存 Firebase 設定。');return;}
+  const email=document.getElementById('cl-email').value.trim();
+  const pass=document.getElementById('cl-pass').value;
+  if(!email||!pass){alert('請輸入 email 和密碼');return;}
+  const p=register?fbAuth.createUserWithEmailAndPassword(email,pass):fbAuth.signInWithEmailAndPassword(email,pass);
+  p.catch(e=>alert((register?'註冊':'登入')+'失敗：'+e.message));
+}
+function cloudSignOut(){if(fbAuth)fbAuth.signOut();}
+function renderCloud(){
+  const el=document.getElementById('cloudBox');if(!el)return;
+  const configured=!!localStorage.getItem('fbConfig');
+  if(!configured){
+    el.innerHTML=`<div class="muted" style="margin-bottom:8px">要跨裝置同步，需先貼上一次 Firebase 設定（免費，我會給你開通步驟）。貼上後就能用 email 登入同步。</div>
+      <textarea id="fb-config" style="width:100%;height:110px;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:monospace;font-size:12px" placeholder="把 Firebase 主控台給你的整段 firebaseConfig 貼進來（含 apiKey、projectId、appId）"></textarea>
+      <div class="row" style="margin-top:8px"><button class="btn" onclick="saveFbConfig()">儲存設定</button></div>`;
+    return;
+  }
+  if(typeof firebase==='undefined'||!fbAuth){
+    el.innerHTML=`<div class="warn">目前連不到雲端（可能沒有網路）。有網路時重新整理頁面即可。</div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost sm" onclick="clearFbConfig()">移除雲端設定</button></div>`;
+    return;
+  }
+  if(fbUser){
+    el.innerHTML=`<div class="row" style="justify-content:space-between">
+        <span>✅ 已登入：<b>${fbUser.email||''}</b></span>
+        <button class="btn ghost sm" onclick="cloudSignOut()">登出</button></div>
+      <div class="muted small" style="margin-top:8px">${cloudStatus||'已連線，資料會自動同步'}。在另一台裝置登入同一帳號即可看到同一份資料。</div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost sm" onclick="clearFbConfig()">移除雲端設定</button></div>`;
+  }else{
+    el.innerHTML=`<div class="muted" style="margin-bottom:8px">${cloudStatus||'用 email + 密碼登入。第一次用請先「註冊」，其他裝置再用同一組「登入」。'}</div>
+      <label class="fld"><span class="lb">Email</span><input type="email" id="cl-email" class="wide" style="width:190px" placeholder="you@example.com"></label>
+      <label class="fld"><span class="lb">密碼</span><input type="password" id="cl-pass" class="wide" style="width:190px" placeholder="至少6碼"></label>
+      <div class="row" style="margin-top:10px">
+        <button class="btn" onclick="cloudSignIn(false)">登入</button>
+        <button class="btn sec" onclick="cloudSignIn(true)">註冊新帳號</button>
+      </div>
+      <div class="row" style="margin-top:8px"><button class="btn ghost sm" onclick="clearFbConfig()">移除雲端設定</button></div>`;
+  }
+}
+
 /* ============ 啟動 ============ */
 bindSetup();
 bindProfile();
+initFirebase();   // 有設定且有網路時啟用雲端同步
 renderSetup();
 // header 今日狀態
 (function(){const d=S.days[todayStr()];const t=d?d.type:'normal';
