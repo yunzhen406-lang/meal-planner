@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>我的飲食規劃</title>
-<meta name="theme-color" content="#4c9a75">
+<meta name="theme-color" content="#ffffff">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-512.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
@@ -12,26 +12,38 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="飲食規劃">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Noto+Serif+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#f5f6f4; --card:#ffffff; --ink:#2c3230; --sub:#7c8a83; --line:#e6e9e6;
-  --grn:#4c9a75; --grn-d:#3a7d5e; --grn-l:#e7f3ec;
-  --amb:#e0a13c; --amb-l:#fbf1de;
-  --red:#d9694f; --red-l:#fbe8e2;
-  --blue:#5b8bb0; --blue-l:#e6eef5;
-  --p:#c96b8e; --f:#e0a13c; --c:#6fa8c9;
-  --radius:14px; --shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  /* 時尚暖調 · 珊瑚陶土主色 + 多彩點綴 */
+  --bg:#f7f4ef; --card:#ffffff; --ink:#211e1b; --sub:#6d675f; --line:#ece7de;
+  --grn:#dd5a3b; --grn-d:#b6432a; --grn-l:#fbe7df;       /* 主色（珊瑚陶土）*/
+  --amb:#dd9a2b; --amb-l:#f8eed4;                        /* 低熱量日（金）*/
+  --red:#c65b7c; --red-l:#f6e2ea;                        /* 放縱/負值（莓紅）*/
+  --blue:#4f96c4; --blue-l:#e4eff7;
+  --p:#8f6fb3; --f:#dd9a2b; --c:#4f96c4;                 /* 蛋白藕紫/脂肪金/碳水藍 */
+  --radius:14px; --shadow:0 2px 10px rgba(40,30,25,.06),0 1px 2px rgba(40,30,25,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:-apple-system,"PingFang TC","Noto Sans TC","Microsoft JhengHei",sans-serif;
-  background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%}
+body{font-family:'Nunito','Noto Serif TC','Songti TC',"PingFang TC",serif;
+  color:var(--ink);font-size:15px;line-height:1.6;-webkit-text-size-adjust:100%;
+  background:
+    radial-gradient(1100px 520px at 108% -8%, #fbe4d8 0%, rgba(251,228,216,0) 58%),
+    radial-gradient(900px 500px at -12% 108%, #efe7f4 0%, rgba(239,231,244,0) 55%),
+    var(--bg);
+  background-attachment:fixed}
+h1,.card h2{font-family:'Noto Serif TC','Nunito',serif;letter-spacing:.3px}
 .wrap{max-width:840px;margin:0 auto;padding:0 0 90px}
-header{background:var(--grn);color:#fff;padding:16px 18px;display:flex;align-items:center;justify-content:space-between}
-header h1{font-size:18px;font-weight:700;letter-spacing:1px}
-header .sub{font-size:12px;opacity:.85;font-weight:400}
+header{background:var(--card);color:var(--ink);padding:14px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:11px}
+.logo{width:32px;height:32px;color:var(--grn);flex:0 0 auto}
+header h1{font-size:18px;font-weight:700;letter-spacing:.5px}
+header .sub{font-size:12px;opacity:1;color:var(--sub);font-weight:400}
 .hdr-right{display:flex;align-items:center;gap:8px;position:relative}
-.avatar{width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.75);background:#fff;color:var(--grn-d);font-weight:800;font-size:16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0}
-.loginbtn{background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.7);color:#fff;border-radius:16px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
+.avatar{width:34px;height:34px;border-radius:50%;border:none;background:linear-gradient(135deg,#e8734f,#cf4b2c);color:#fff;font-weight:800;font-size:16px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;padding:0}
+.loginbtn{background:var(--grn-l);border:1px solid var(--grn);color:var(--grn-d);border-radius:16px;padding:6px 13px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit}
 .acctmenu{position:absolute;top:44px;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 6px 20px rgba(0,0,0,.15);padding:12px;min-width:200px;z-index:60}
 .acctmenu .em{font-size:13px;font-weight:700;color:var(--ink);word-break:break-all}
 .acctmenu .st{font-size:11px;color:var(--sub);margin:5px 0 9px;padding-bottom:9px;border-bottom:1px solid var(--line)}
@@ -59,7 +71,7 @@ input[type=number],input[type=text]{width:78px;padding:6px 8px;border:1px solid 
 input.wide{width:130px;text-align:left}
 select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:#fafbfa}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.btn{border:none;border-radius:10px;padding:9px 14px;font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;background:var(--grn);color:#fff}
+.btn{border:none;border-radius:10px;padding:9px 14px;font-size:13.5px;font-weight:700;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#e8734f,#cf4b2c);color:#fff}
 .btn.sec{background:var(--grn-l);color:var(--grn-d)}
 .btn.ghost{background:#f0f2f0;color:var(--ink)}
 .btn.sm{padding:5px 10px;font-size:12px;border-radius:8px}
@@ -156,7 +168,15 @@ table input[type=number]{width:58px;padding:4px 5px}
 <body>
 <div class="wrap">
   <header>
-    <div><h1>我的飲食規劃</h1><div class="sub" id="hdrsub">依食物代換表 · 六大類份數</div></div>
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="16" cy="16.5" r="10.5"/>
+        <path d="M11.4 9.4 V13 a1.45 1.45 0 0 0 2.9 0 V9.4"/>
+        <path d="M12.85 14.6 V23.2"/>
+        <path d="M20.6 9.4 C 18.7 10.6 18.7 15.2 20.6 16.2 V23.2"/>
+      </svg>
+      <div><h1>我的飲食規劃</h1><div class="sub" id="hdrsub">依食物代換表 · 六大類份數</div></div>
+    </div>
     <div class="hdr-right">
       <div class="pill n" id="hdrpill" style="cursor:pointer" onclick="go('records')">📅</div>
       <div id="acct"></div>
@@ -235,7 +255,7 @@ table input[type=number]{width:58px;padding:4px 5px}
         <div style="margin-top:8px">
           <div class="row">
             <input type="text" id="cf_name" class="wide" placeholder="名稱（例：大麥克、鮪魚御飯糰）" style="flex:1">
-            <select id="cf_grp" onchange="cfToggle()"></select>
+            <select id="cf_grp" onchange="cfChanged()"></select>
           </div>
           <div class="row" id="cf_brandrow" style="margin-top:8px;display:none"><input type="text" id="cf_brand" class="wide" placeholder="來源/品牌（選填）" style="flex:1"></div>
           <div class="row" style="margin-top:8px">
@@ -248,7 +268,7 @@ table input[type=number]{width:58px;padding:4px 5px}
             <span class="muted">碳水</span><input type="number" id="cf_c" style="width:56px"><span class="muted">g</span>
           </div>
           <button class="btn sm" style="margin-top:10px" onclick="addCustomFood()">新增</button>
-          <div class="muted small" style="margin-top:6px">外食/自建分類：可只填熱量，或連三大營養素一起填會更準。</div>
+          <div class="muted small" style="margin-top:6px">選好類別後會帶入該類的預設營養素當起點，你可以改成自己牌子查到的真實數字（重量、熱量、蛋白/脂肪/碳水都可填）。熱量留空會用三大營養素自動算。</div>
         </div>
       </details>
     </div>
@@ -280,6 +300,7 @@ table input[type=number]{width:58px;padding:4px 5px}
 
   <!-- 紀錄 -->
   <section id="tab-records">
+    <div class="card" id="weightCard"></div>
     <div class="card" id="deficitCard"></div>
     <div class="card">
       <div class="calhead">
@@ -371,7 +392,7 @@ function foodById(id){return allFoods().find(f=>f.id===id);}
 // 直接輸入營養素的類別：外食(x) 或 自建分類(u...)
 function isDirect(g){return g==='x'||g[0]==='u';}
 function nutOf(f,serv){ // 一份食材的營養
-  if(isDirect(f.g)){ // 直接用自訂三大營養素（熱量若有填就直接用）
+  if(f.direct||isDirect(f.g)){ // 自訂食材/外食：用它自己的三大營養素（熱量若有填就直接用）
     const p=(f.P||0)*serv, fat=(f.F||0)*serv, c=(f.C||0)*serv;
     const kc=(f.kcal!=null&&f.kcal!=='')?(+f.kcal)*serv:p*4+c*4+fat*9;
     return {p,f:fat,c,kcal:kc};
@@ -401,10 +422,12 @@ const DEF={
   },
   fav:{}, custom:[], days:{}, cats:[],
   profile:{sex:'F',age:'',height:'',weight:'',activity:1.2},
+  weights:[], goal:'',
 };
 let S=load();
 if(!S.cats)S.cats=[];
 if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};
+if(!S.weights)S.weights=[];
 CUSTOM=S.custom||[];
 let onlyFav=false, activeCat='p';
 let selDate=todayStr();
@@ -558,11 +581,22 @@ function renderFood(){
   renderFoodList();
 }
 function cfToggle(){
-  const g=document.getElementById('cf_grp').value;const direct=isDirect(g);
-  document.getElementById('cf_macros').style.display=direct?'flex':'none';
-  document.getElementById('cf_kcal').style.display=direct?'inline-block':'none';
-  document.getElementById('cf_kcallb').style.display=direct?'inline':'none';
+  // 所有自訂食材都可填熱量與三大營養素；品牌欄只有「其他/外食」顯示
+  const g=document.getElementById('cf_grp').value;
+  document.getElementById('cf_macros').style.display='flex';
+  document.getElementById('cf_kcal').style.display='inline-block';
+  document.getElementById('cf_kcallb').style.display='inline';
   document.getElementById('cf_brandrow').style.display=g==='x'?'flex':'none';
+}
+// 使用者切換類別時，用該類別代換表的每份預設值當起點（方便再改成自己牌子的數字）
+function cfChanged(){
+  const g=document.getElementById('cf_grp').value;
+  const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v;};
+  const G=GROUPS[g];
+  if(G&&!isDirect(g)){set('cf_p',G.P||'');set('cf_f',G.F||'');set('cf_c',G.C||'');}
+  else{set('cf_p','');set('cf_f','');set('cf_c','');}
+  set('cf_kcal','');
+  cfToggle();
 }
 function addCat(){
   const name=(prompt('新分類名稱（例：7-11、Costco、健身餐盒）')||'').trim();
@@ -614,18 +648,15 @@ function addCustomFood(){
   const n=gv('cf_name').trim();const g=gv('cf_grp');
   if(!n){alert('請輸入名稱');return;}
   const id='c'+Date.now();
-  const w=parseFloat(gv('cf_w'))||0;
-  if(isDirect(g)){
-    const item={id,g,n,w,
-      brand:g==='x'?gv('cf_brand').trim():'',
-      kcal:gv('cf_kcal')===''?null:parseFloat(gv('cf_kcal')),
-      P:parseFloat(gv('cf_p'))||0,F:parseFloat(gv('cf_f'))||0,C:parseFloat(gv('cf_c'))||0,xc:0,xp:0,xf:0};
-    CUSTOM.push(item);S.fav[id]=true;
-    ['cf_name','cf_brand','cf_w','cf_kcal','cf_p','cf_f','cf_c'].forEach(i=>document.getElementById(i).value='');
-  }else{
-    CUSTOM.push({id,g,n,w,xc:0,xp:0,xf:0});S.fav[id]=true;
-    document.getElementById('cf_name').value='';document.getElementById('cf_w').value='';
-  }
+  // 所有自訂食材都用自己填的三大營養素（direct），但保留所選類別做分類
+  const item={id,g,n,
+    w:parseFloat(gv('cf_w'))||0,
+    brand:g==='x'?gv('cf_brand').trim():'',
+    kcal:gv('cf_kcal')===''?null:parseFloat(gv('cf_kcal')),
+    P:parseFloat(gv('cf_p'))||0,F:parseFloat(gv('cf_f'))||0,C:parseFloat(gv('cf_c'))||0,
+    direct:true,xc:0,xp:0,xf:0};
+  CUSTOM.push(item);S.fav[id]=true;
+  ['cf_name','cf_brand','cf_w','cf_kcal','cf_p','cf_f','cf_c'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
   save();activeCat=catOf(g);renderFood();
 }
 
@@ -971,7 +1002,123 @@ function renderDeficit(){
     </div>
     <div class="muted small" style="margin-top:8px">赤字（正值）代表消耗大於攝取，有助減重；只統計有記錄飲食或運動的天。本週依所選日期那週、本月依日曆月份。</div>`;
 }
+/* ============ 體重紀錄 ============ */
+let weightRange={mode:'all',start:null,end:null};
+let chartSelDate=null;
+function selWpt(date){chartSelDate=(chartSelDate===date?null:date);renderWeight();}
+function sortedWeights(){return (S.weights||[]).slice().sort((a,b)=>a.date<b.date?-1:(a.date>b.date?1:0));}
+function addWeight(){
+  const date=document.getElementById('w-date').value||todayStr();
+  const kg=parseFloat(document.getElementById('w-kg').value);
+  if(!kg||kg<=0){alert('請輸入體重');return;}
+  S.weights=(S.weights||[]).filter(e=>e.date!==date); // 同一天覆蓋
+  S.weights.push({date,kg:r1(kg)});
+  const l=sortedWeights();const latest=l[l.length-1];
+  if(latest)S.profile.weight=latest.kg; // 最近一次體重連動 BMR
+  save();renderWeight();renderProfileResult&&renderProfileResult();
+}
+function delWeight(date){S.weights=(S.weights||[]).filter(e=>e.date!==date);
+  const l=sortedWeights();if(l.length)S.profile.weight=l[l.length-1].kg;
+  save();renderWeight();}
+function setGoal(v){S.goal=v;save();renderWeight();}
+function setWRange(m){weightRange.mode=m;
+  if(m==='custom'&&!weightRange.start){const l=sortedWeights();weightRange.start=l.length?l[0].date:todayStr();weightRange.end=todayStr();}
+  renderWeight();}
+function setWDate(k,v){weightRange[k]=v;renderWeight();}
+function wRangeStart(){
+  const now=new Date();const m=weightRange.mode;
+  if(m==='1m')return dstr(new Date(now.getFullYear(),now.getMonth()-1,now.getDate()));
+  if(m==='3m')return dstr(new Date(now.getFullYear(),now.getMonth()-3,now.getDate()));
+  if(m==='6m')return dstr(new Date(now.getFullYear(),now.getMonth()-6,now.getDate()));
+  if(m==='1y')return dstr(new Date(now.getFullYear()-1,now.getMonth(),now.getDate()));
+  if(m==='custom')return weightRange.start;
+  return null; // all
+}
+function renderWeight(){
+  const el=document.getElementById('weightCard');if(!el)return;
+  const list=sortedWeights();
+  const latest=list.length?list[list.length-1]:null;
+  const prev=list.length>1?list[list.length-2]:null;
+  const goal=parseFloat(S.goal)||0;
+  const delta=(latest&&prev)?r1(latest.kg-prev.kg):null;
+  const toGoal=(latest&&goal)?r1(latest.kg-goal):null;
+  const deltaHTML=delta==null?'<span class="muted">—</span>':
+    (delta===0?'<span class="muted">持平</span>':
+     (delta<0?`<span style="color:var(--grn-d)">▼ ${Math.abs(delta)}</span>`:`<span style="color:var(--red)">▲ ${delta}</span>`));
+  const goalHTML=toGoal==null?'—':(toGoal<=0?'<span style="color:var(--grn-d)">已達標 🎉</span>':`還差 ${toGoal}`);
+  // 依區間過濾
+  const start=wRangeStart(),end=(weightRange.mode==='custom')?weightRange.end:null;
+  const inRange=list.filter(e=>(!start||e.date>=start)&&(!end||e.date<=end));
+  const pts=inRange.map(e=>({t:parseD(e.date).getTime(),kg:e.kg,date:e.date}));
+  const seg=(m,lb)=>`<button class="${weightRange.mode===m?'on':''}" onclick="setWRange('${m}')">${lb}</button>`;
+  el.innerHTML=`<h2>⚖️ 體重紀錄</h2>
+    <div class="macros">
+      <div class="macro"><div class="v">${latest?latest.kg:'—'}</div><div class="k">目前體重 kg</div></div>
+      <div class="macro"><div class="v" style="font-size:15px;padding-top:3px">${deltaHTML}</div><div class="k">跟上次</div></div>
+      <div class="macro"><div class="v" style="font-size:14px;padding-top:4px">${goalHTML}</div><div class="k">距目標 kg</div></div>
+    </div>
+    <div class="row" style="margin-top:10px;gap:8px;flex-wrap:wrap">
+      <span class="muted">目標體重</span>
+      <input type="text" inputmode="decimal" id="w-goal" value="${S.goal||''}" style="width:70px" onchange="setGoal(this.value)"> kg
+    </div>
+    <div class="row" style="margin-top:10px;gap:6px;flex-wrap:wrap;align-items:center">
+      <input type="date" id="w-date" value="${todayStr()}" style="flex:0 0 auto">
+      <input type="text" inputmode="decimal" id="w-kg" placeholder="體重kg" value="${latest?latest.kg:''}" style="width:80px">
+      <button class="btn sm" onclick="addWeight()">記錄</button>
+    </div>
+    <div class="seg" style="margin-top:12px">${seg('all','全部')}${seg('1m','1月')}${seg('3m','3月')}${seg('6m','6月')}${seg('1y','1年')}${seg('custom','自訂')}</div>
+    ${weightRange.mode==='custom'?`<div class="row" style="justify-content:center;gap:8px;margin-top:8px">
+      <input type="date" value="${weightRange.start||''}" onchange="setWDate('start',this.value)">
+      <span class="muted">～</span>
+      <input type="date" value="${weightRange.end||''}" onchange="setWDate('end',this.value)"></div>`:''}
+    <div style="margin-top:10px">${weightChartSVG(pts,goal,chartSelDate)}</div>
+    ${pts.length>=2?'<div class="muted small center" style="margin-top:2px">點圓點看該日體重</div>':''}
+    ${list.length?`<details style="margin-top:8px"><summary class="muted small" style="cursor:pointer">所有紀錄（${list.length} 筆）</summary>
+      <div style="margin-top:6px">${list.slice().reverse().map(e=>`<div class="shopline"><span>${e.date}</span><span class="amt">${e.kg} kg <button class="del" style="font-size:13px" onclick="delWeight('${e.date}')">✕</button></span></div>`).join('')}</div></details>`:''}`;
+}
+function weightChartSVG(pts,goal,sel){
+  if(pts.length<2)return '<div class="emptybox">記錄兩筆以上就會出現趨勢曲線</div>';
+  const W=340,H=172,padL=30,padR=14,padT=16,padB=20;
+  const ys=pts.map(p=>p.kg);let minY=Math.min(...ys),maxY=Math.max(...ys);
+  if(goal){minY=Math.min(minY,goal);maxY=Math.max(maxY,goal);}
+  const gap=(maxY-minY)*0.18||1;minY-=gap;maxY+=gap;
+  const xs=pts.map(p=>p.t),minX=xs[0],maxX=xs[xs.length-1];
+  const sx=t=>padL+(maxX===minX?0:(t-minX)/(maxX-minX))*(W-padL-padR);
+  const sy=v=>padT+(1-(v-minY)/(maxY-minY))*(H-padT-padB);
+  const line=pts.map((p,i)=>(i?'L':'M')+sx(p.t).toFixed(1)+' '+sy(p.kg).toFixed(1)).join(' ');
+  const area=line+` L${sx(maxX).toFixed(1)} ${(H-padB).toFixed(1)} L${sx(minX).toFixed(1)} ${(H-padB).toFixed(1)} Z`;
+  const dots=pts.map(p=>`<circle cx="${sx(p.t).toFixed(1)}" cy="${sy(p.kg).toFixed(1)}" r="3.2" fill="#fff" stroke="var(--grn)" stroke-width="1.6"/>`).join('');
+  const hits=pts.map(p=>`<circle cx="${sx(p.t).toFixed(1)}" cy="${sy(p.kg).toFixed(1)}" r="13" fill="transparent" style="cursor:pointer" onclick="selWpt('${p.date}')"/>`).join('');
+  const gl=goal?`<line x1="${padL}" y1="${sy(goal).toFixed(1)}" x2="${W-padR}" y2="${sy(goal).toFixed(1)}" stroke="var(--red)" stroke-width="1" stroke-dasharray="4 3"/><text x="${W-padR}" y="${(sy(goal)-3).toFixed(1)}" text-anchor="end" font-size="8" fill="var(--red)">目標 ${goal}</text>`:'';
+  const fmt=t=>{const d=new Date(t);return (d.getMonth()+1)+'/'+d.getDate();};
+  // 提示泡泡
+  let tip='';
+  const sp=sel?pts.find(p=>p.date===sel):null;
+  if(sp){
+    const x=sx(sp.t),y=sy(sp.kg);
+    const label=sp.date.slice(5).replace('-','/')+' · '+sp.kg+'kg';
+    const bw=label.length*4.9+13, bh=15.5;
+    let bx=Math.max(2,Math.min(W-bw-2,x-bw/2));
+    let by=y-bh-8; if(by<0){by=y+8;}
+    tip=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.8" fill="var(--grn)" stroke="#fff" stroke-width="1.6"/>
+      <rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh}" rx="7" fill="var(--grn-d)"/>
+      <text x="${(bx+bw/2).toFixed(1)}" y="${(by+10.6).toFixed(1)}" text-anchor="middle" font-size="8" fill="#fff" font-weight="700">${label}</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;overflow:visible">
+    <text x="2" y="${(sy(maxY-gap*0.5)).toFixed(1)}" font-size="8" fill="var(--sub)">${(maxY-gap*0.5).toFixed(1)}</text>
+    <text x="2" y="${(sy(minY+gap*0.5)).toFixed(1)}" font-size="8" fill="var(--sub)">${(minY+gap*0.5).toFixed(1)}</text>
+    <path d="${area}" fill="var(--grn-l)" opacity="0.55"/>
+    ${gl}
+    <path d="${line}" fill="none" stroke="var(--grn)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+    <text x="${padL}" y="${H-5}" font-size="8" fill="var(--sub)">${fmt(minX)}</text>
+    <text x="${W-padR}" y="${H-5}" text-anchor="end" font-size="8" fill="var(--sub)">${fmt(maxX)}</text>
+    ${hits}
+    ${tip}
+  </svg>`;
+}
 function renderRecords(){
+  renderWeight();
   renderDeficit();
   document.getElementById('monthlabel').textContent=calMonth.getFullYear()+'年 '+(calMonth.getMonth()+1)+'月';
   const grid=document.getElementById('calgrid');
@@ -1033,6 +1180,7 @@ function applyImport(obj){
   S=obj;
   if(!S.cats)S.cats=[];
   if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};
+  if(!S.weights)S.weights=[];
   CUSTOM=S.custom||[];
   save();return true;
 }
@@ -1054,7 +1202,7 @@ function rerenderCurrent(){
 }
 window.addEventListener('storage',e=>{
   if(e.key==='dietApp'&&e.newValue){
-    try{S=JSON.parse(e.newValue);if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};CUSTOM=S.custom||[];rerenderCurrent();}catch(_){}
+    try{S=JSON.parse(e.newValue);if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];CUSTOM=S.custom||[];rerenderCurrent();}catch(_){}
   }
 });
 
@@ -1069,7 +1217,7 @@ const DEFAULT_FB_CONFIG={
   appId:"1:705276709874:web:1a00895f6fec033f20f96b"
 };
 let fbApp=null,fbAuth=null,fbDb=null,fbUser=null,fbUnsub=null,cloudTimer=null,cloudStatus='';
-function normalizeState(){if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};CUSTOM=S.custom||[];}
+function normalizeState(){if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];CUSTOM=S.custom||[];}
 function effectiveFbConfig(){
   const s=localStorage.getItem('fbConfig');
   if(s){try{const c=JSON.parse(s);if(c&&c.apiKey)return c;}catch(_){}}
