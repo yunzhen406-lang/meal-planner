@@ -187,36 +187,17 @@ table input[type=number]{width:58px;padding:4px 5px}
   <!-- 設定 -->
   <section id="tab-setup" class="on">
     <div class="card">
-      <h2>🎯 每日目標模板 <span class="tag">正常日套用同一組</span></h2>
-      <div class="muted" style="margin-bottom:8px">先設好正常日；低熱量日、放縱餐在下方另外設定。數字都可隨時修改。</div>
-      <label class="fld"><span class="lb">正常日熱量 (大卡)</span><input type="number" id="s_kcal" step="10"></label>
-      <label class="fld"><span class="lb">碳水 %</span><input type="number" id="s_c"></label>
-      <label class="fld"><span class="lb">蛋白 %</span><input type="number" id="s_p"></label>
-      <label class="fld"><span class="lb">脂肪 %</span><input type="number" id="s_f"></label>
-      <div class="row" style="margin-top:8px;justify-content:space-between">
-        <span class="muted" id="s_pctsum"></span>
-        <span class="muted">水果 <input type="text" inputmode="decimal" id="s_fruit" style="width:56px"> 份 · 蔬菜 <input type="text" inputmode="decimal" id="s_veg" style="width:56px"> 份</span>
-      </div>
+      <h2>🎯 目標模板 <span class="tag">每天在菜單自己選用哪一組</span></h2>
+      <div class="muted small">可建立多組（正常日、低熱量日，或自己加高蛋白/低碳…）。改某一組只會影響「指定用它」的天，過去的天不受影響。</div>
+    </div>
+    <div id="tplList"></div>
+    <div class="card">
+      <button class="btn sec" onclick="addTpl()">➕ 新增一組模板</button>
     </div>
 
-    <div class="card" id="normalResult"></div>
-
     <div class="card">
-      <h2>🌙 低熱量日 (5:2) <span class="tag">一週挑兩天</span></h2>
-      <label class="fld"><span class="lb">熱量 (大卡)</span><input type="number" id="l_kcal" step="10"></label>
-      <label class="fld"><span class="lb">碳水 %</span><input type="number" id="l_c"></label>
-      <label class="fld"><span class="lb">蛋白 %</span><input type="number" id="l_p"></label>
-      <label class="fld"><span class="lb">脂肪 %</span><input type="number" id="l_f"></label>
-      <div class="row" style="margin-top:8px;justify-content:space-between">
-        <span class="muted" id="l_pctsum"></span>
-        <span class="muted">水果 <input type="text" inputmode="decimal" id="l_fruit" style="width:56px"> 份 · 蔬菜 <input type="text" inputmode="decimal" id="l_veg" style="width:56px"> 份</span>
-      </div>
-    </div>
-    <div class="card" id="lowResult"></div>
-
-    <div class="card">
-      <h2>🍔 放縱餐</h2>
-      <div class="muted">放縱日在「菜單」把當天日型改成「放縱」，只要填入當餐熱量即可，不必排份數。</div>
+      <h2>🍔 放縱日</h2>
+      <div class="muted">在「菜單」把當天選成「🍔 放縱日」，只要填當日熱量即可，不必排份數。</div>
     </div>
 
     <div class="card">
@@ -417,9 +398,10 @@ function allCats(){return [['p','蛋白質'],['g','全穀雜糧'],['v','蔬菜']
 /* ============ 狀態 ============ */
 const DEF={
   templates:{
-    normal:{kcal:1500,c:40,p:30,f:30,fruit:1,veg:2},
-    low:{kcal:600,c:40,p:35,f:25,fruit:0.5,veg:2},
+    normal:{name:'正常日',kcal:1500,c:40,p:30,f:30,fruit:1,veg:2,low:false},
+    low:{name:'低熱量日',kcal:600,c:40,p:35,f:25,fruit:0.5,veg:2,low:true},
   },
+  tplOrder:['normal','low'],
   fav:{}, custom:[], days:{}, cats:[],
   profile:{sex:'F',age:'',height:'',weight:'',activity:1.2},
   weights:[], goal:'', cookDays:[],
@@ -429,7 +411,21 @@ if(!S.cats)S.cats=[];
 if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};
 if(!S.weights)S.weights=[];
 if(!S.cookDays)S.cookDays=[];
+migrateTemplates();
 CUSTOM=S.custom||[];
+// 舊資料：模板補上名稱/low欄位與排序
+function migrateTemplates(){
+  if(!S.templates)S.templates={};
+  if(S.templates.normal&&!S.templates.normal.name)S.templates.normal.name='正常日';
+  if(S.templates.normal&&S.templates.normal.low===undefined)S.templates.normal.low=false;
+  if(S.templates.low&&!S.templates.low.name)S.templates.low.name='低熱量日';
+  if(S.templates.low&&S.templates.low.low===undefined)S.templates.low.low=true;
+  if(!S.tplOrder||!S.tplOrder.length){
+    S.tplOrder=['normal','low'].filter(id=>S.templates[id]).concat(Object.keys(S.templates).filter(id=>id!=='normal'&&id!=='low'));
+  }
+  S.tplOrder=S.tplOrder.filter(id=>S.templates[id]); // 清掉已刪的
+}
+function tplOrder(){return (S.tplOrder||[]).filter(id=>S.templates[id]);}
 let onlyFav=false, activeCat='p';
 let selDate=todayStr();
 let calMonth=firstOfMonth(new Date());
@@ -488,24 +484,69 @@ function go(t){
   if(t==='records')renderRecords();
 }
 
-/* ============ 設定頁 ============ */
+/* ============ 設定頁：目標模板列表 ============ */
 function renderSetup(){
-  // 進入分頁時才寫入欄位值（打字過程中不會重寫，避免小數點被吃掉/游標跳動）
-  const n=S.templates.normal,l=S.templates.low;
-  const set=(id,v)=>document.getElementById(id).value=v;
-  set('s_kcal',n.kcal);set('s_c',n.c);set('s_p',n.p);set('s_f',n.f);set('s_fruit',n.fruit);set('s_veg',n.veg);
-  set('l_kcal',l.kcal);set('l_c',l.c);set('l_p',l.p);set('l_f',l.f);set('l_fruit',l.fruit);set('l_veg',l.veg);
-  refreshSetupResults();
+  document.getElementById('tplList').innerHTML=tplOrder().map(id=>tplCardHTML(id)).join('');
   renderProfile();
   renderAccount();
 }
-// 只更新下方計算結果，不去動使用者正在打字的欄位
-function refreshSetupResults(){
-  const n=S.templates.normal,l=S.templates.low;
-  document.getElementById('s_pctsum').textContent='合計 '+r1(n.c+n.p+n.f)+'%'+(r1(n.c+n.p+n.f)!==100?' ⚠ 不是100%':' ✓');
-  document.getElementById('l_pctsum').textContent='合計 '+r1(l.c+l.p+l.f)+'%'+(r1(l.c+l.p+l.f)!==100?' ⚠ 不是100%':' ✓');
-  renderSixTable('normalResult',n,'正常日');
-  renderSixTable('lowResult',l,'低熱量日');
+function tplCardHTML(id){
+  const t=S.templates[id];const pct=r1((+t.c||0)+(+t.p||0)+(+t.f||0));
+  const canDel=tplOrder().length>1;
+  return `<div class="card">
+    <div class="flexh" style="margin-bottom:4px">
+      <input value="${(t.name||'').replace(/"/g,'&quot;')}" onchange="updateTpl('${id}','name',this.value)"
+        style="font-weight:700;font-size:15px;border:none;border-bottom:1px solid var(--line);background:none;width:62%;font-family:'Noto Serif TC',serif">
+      ${canDel?`<button class="btn mini" onclick="delTpl('${id}')">刪除</button>`:''}
+    </div>
+    <label class="fld"><span class="lb">熱量 (大卡)</span><input type="number" step="10" value="${t.kcal}" onchange="updateTpl('${id}','kcal',this.value)"></label>
+    <label class="fld"><span class="lb">碳水 %</span><input type="number" value="${t.c}" onchange="updateTpl('${id}','c',this.value)"></label>
+    <label class="fld"><span class="lb">蛋白 %</span><input type="number" value="${t.p}" onchange="updateTpl('${id}','p',this.value)"></label>
+    <label class="fld"><span class="lb">脂肪 %</span><input type="number" value="${t.f}" onchange="updateTpl('${id}','f',this.value)"></label>
+    <div class="row" style="margin-top:8px;justify-content:space-between">
+      <span class="muted" id="tplPct-${id}">合計 ${pct}%${pct!==100?' ⚠ 不是100%':' ✓'}</span>
+      <span class="muted">水果 <input type="text" inputmode="decimal" value="${t.fruit}" style="width:50px" onchange="updateTpl('${id}','fruit',this.value)"> · 蔬菜 <input type="text" inputmode="decimal" value="${t.veg}" style="width:50px" onchange="updateTpl('${id}','veg',this.value)"> 份</span>
+    </div>
+    <label class="fld" style="margin-top:4px"><span class="lb small">屬於低熱量日（5:2，日曆標金色）</span><input type="checkbox" ${t.low?'checked':''} onchange="updateTpl('${id}','low',this.checked)"></label>
+    <div id="tplRes-${id}">${sixTableInner(t)}</div>
+  </div>`;
+}
+function sixTableInner(t){
+  const s=sixGroups(t);const kcalCheck=r0(s.C*4+s.P*4+s.F*9);
+  return `<div class="macros" style="margin-top:6px">
+     <div class="macro C"><div class="v">${s.C}</div><div class="k">碳水 g</div></div>
+     <div class="macro P"><div class="v">${s.P}</div><div class="k">蛋白 g</div></div>
+     <div class="macro F"><div class="v">${s.F}</div><div class="k">脂肪 g</div></div>
+   </div>
+   <table style="margin-top:10px">
+     <tr><th>類別</th><th>份數</th><th>蛋白g</th><th>脂肪g</th><th>碳水g</th></tr>
+     ${grpRow('🍎 水果',s.fruit,0,0,15)}${grpRow('🥬 蔬菜',s.veg,1,0,5)}${grpRow('🍚 全穀雜糧',s.grain,2,0,15)}${grpRow('🍗 豆魚蛋肉',s.prot,7,4,0)}${grpRow('🥜 油脂',s.oil,0,5,0)}
+   </table>
+   <div class="muted small" style="margin-top:6px">水果、蔬菜份數自己定，其餘自動補足；反算熱量 ≈ ${kcalCheck} 大卡。</div>`;
+}
+function updateTpl(id,field,val){
+  const t=S.templates[id];if(!t)return;
+  if(field==='name')t.name=val;
+  else if(field==='low')t.low=!!val;
+  else t[field]=parseFloat(val)||0;
+  save();
+  // 只更新該模板的預覽與合計，不重繪整頁（避免游標跳動）
+  const res=document.getElementById('tplRes-'+id);if(res)res.innerHTML=sixTableInner(t);
+  const pctEl=document.getElementById('tplPct-'+id);if(pctEl){const pct=r1((+t.c||0)+(+t.p||0)+(+t.f||0));pctEl.textContent='合計 '+pct+'%'+(pct!==100?' ⚠ 不是100%':' ✓');}
+}
+function addTpl(){
+  const id='t'+Date.now();
+  S.templates[id]={name:'新模板',kcal:1500,c:40,p:30,f:30,fruit:1,veg:2,low:false};
+  S.tplOrder=tplOrder().concat(id);save();renderSetup();
+}
+function delTpl(id){
+  if(tplOrder().length<=1)return;
+  const t=S.templates[id];
+  if(!confirm('刪除模板「'+(t?t.name:'')+'」？用它的天會改成第一組模板。'))return;
+  delete S.templates[id];S.tplOrder=tplOrder().filter(x=>x!==id);
+  const fallback=tplOrder()[0];
+  Object.values(S.days).forEach(d=>{if(d.tplId===id)d.tplId=fallback;if(d.type===id)d.type='plan';});
+  save();renderSetup();
 }
 function renderProfile(){
   // 進入分頁時才寫欄位值；打字過程只更新結果，不重寫欄位
@@ -533,38 +574,8 @@ function bindProfile(){
     const e=document.getElementById(id);if(e)e.addEventListener('input',saveProfile);
   });
 }
-function renderSixTable(elId,t,title){
-  const s=sixGroups(t);
-  const kcalCheck=r0(s.C*4+s.P*4+s.F*9);
-  document.getElementById(elId).innerHTML=`
-   <h2>📐 ${title} 三大營養素 & 六大類份數</h2>
-   <div class="macros">
-     <div class="macro C"><div class="v">${s.C}</div><div class="k">碳水 g</div></div>
-     <div class="macro P"><div class="v">${s.P}</div><div class="k">蛋白 g</div></div>
-     <div class="macro F"><div class="v">${s.F}</div><div class="k">脂肪 g</div></div>
-   </div>
-   <table style="margin-top:12px">
-     <tr><th>類別</th><th>份數</th><th>蛋白g</th><th>脂肪g</th><th>碳水g</th></tr>
-     ${grpRow('🍎 水果',s.fruit,0,0,15)}
-     ${grpRow('🥬 蔬菜',s.veg,1,0,5)}
-     ${grpRow('🍚 全穀雜糧',s.grain,2,0,15)}
-     ${grpRow('🍗 豆魚蛋肉',s.prot,7,4,0)}
-     ${grpRow('🥜 油脂',s.oil,0,5,0)}
-   </table>
-   <div class="muted" style="margin-top:8px">由熱量與%自動推算（份數到小數1位）。水果、蔬菜份數你自己定，其餘自動補足。反算熱量 ≈ ${kcalCheck} 大卡。</div>`;
-}
 function grpRow(name,serv,p,f,c){
   return `<tr><td class="name">${name}</td><td><b>${serv}</b></td><td>${r1(serv*p)}</td><td>${r1(serv*f)}</td><td>${r1(serv*c)}</td></tr>`;
-}
-['s_kcal','s_c','s_p','s_f','s_fruit','s_veg'].forEach(id=>{});
-function bindSetup(){
-  const map=[['s_kcal','normal','kcal'],['s_c','normal','c'],['s_p','normal','p'],['s_f','normal','f'],['s_fruit','normal','fruit'],['s_veg','normal','veg'],
-             ['l_kcal','low','kcal'],['l_c','low','c'],['l_p','low','p'],['l_f','low','f'],['l_fruit','low','fruit'],['l_veg','low','veg']];
-  map.forEach(([id,tpl,key])=>{
-    document.getElementById(id).addEventListener('input',e=>{
-      S.templates[tpl][key]=parseFloat(e.target.value)||0;save();refreshSetupResults();
-    });
-  });
 }
 
 /* ============ 食材頁 ============ */
@@ -674,7 +685,14 @@ function getDay(date){
   return dd;
 }
 function burnedOf(date){const d=S.days[date];if(!d||!d.ex)return 0;return d.ex.reduce((s,e)=>s+(+e.kcal||0),0);}
-function dayTemplate(date){const d=getDay(date);return d.type==='low'?S.templates.low:S.templates.normal;}
+function isCheat(d){return !!(d&&d.type==='cheat');}
+function dayTid(d){return (d&&d.tplId&&S.templates[d.tplId])?d.tplId:(d&&d.type==='low'?'low':'normal');}
+function dayTemplate(date){const d=getDay(date);return S.templates[dayTid(d)]||S.templates.normal||S.templates[tplOrder()[0]];}
+function dayCls(d){if(!d)return'';if(isCheat(d))return'c';const t=S.templates[dayTid(d)];return t&&t.low?'l':'n';}
+function dayTplName(d){if(isCheat(d))return'放縱日';const t=S.templates[dayTid(d)];return t?t.name:'正常日';}
+function setDayTpl(v){snapshot(selDate);const d=getDay(selDate);
+  if(v==='__cheat__')d.type='cheat';else{d.type='plan';d.tplId=v;}
+  save();renderMenu();}
 const MEALS=[['b','早餐','🌅'],['l','午餐','☀️'],['d','晚餐','🌙']];
 
 function renderMenu(){
@@ -683,12 +701,12 @@ function renderMenu(){
   const strip=document.getElementById('weekstrip');
   strip.innerHTML='';
   for(let i=0;i<7;i++){
-    const date=addDays(ws,i);const d=S.days[date];const t=d?d.type:null;
-    const tot=d?dayTotals(date).kcal:0;
-    const tag=t==='low'?'低':t==='cheat'?'放':t==='normal'&&d.meals&&(d.meals.b.length+d.meals.l.length+d.meals.d.length)?'✓':'';
+    const date=addDays(ws,i);const d=S.days[date];const cls=dayCls(d);
+    const has=d&&d.meals&&(d.meals.b.length+d.meals.l.length+d.meals.d.length);
+    const tag=!d?'':isCheat(d)?'放':(cls==='l'?'低':(has?'✓':''));
     strip.innerHTML+=`<div class="day ${date===selDate?'on':''} ${date===todayStr()?'today':''}" onclick="setSel('${date}')">
       <div class="dw">週${WD[parseD(date).getDay()]}</div><div class="dn">${parseD(date).getDate()}</div>
-      <div class="dt">${tag?'<span class="pill '+(t==='low'?'l':t==='cheat'?'c':'n')+'" style="padding:0 5px">'+tag+'</span>':'&nbsp;'}</div>
+      <div class="dt">${tag?'<span class="pill '+cls+'" style="padding:0 5px">'+tag+'</span>':'&nbsp;'}</div>
     </div>`;
   }
   renderDay();
@@ -700,11 +718,10 @@ function renderDay(){
   head.innerHTML=`
     <div class="flexh">
       <div><b>${date.slice(5)}（週${WD[dt.getDay()]}）</b> ${date===todayStr()?'<span class="pill n">今天</span>':''}</div>
-      <div class="seg" style="width:210px">
-        <button class="${d.type==='normal'?'on':''}" onclick="setType('normal')">正常</button>
-        <button class="${d.type==='low'?'on':''}" onclick="setType('low')">低熱量</button>
-        <button class="${d.type==='cheat'?'on':''}" onclick="setType('cheat')">放縱</button>
-      </div>
+      <select onchange="setDayTpl(this.value)" style="max-width:150px">
+        ${tplOrder().map(id=>`<option value="${id}" ${!isCheat(d)&&dayTid(d)===id?'selected':''}>${S.templates[id].name}</option>`).join('')}
+        <option value="__cheat__" ${isCheat(d)?'selected':''}>🍔 放縱日</option>
+      </select>
     </div>
     <div class="row" style="margin-top:10px;gap:6px">
       <button class="btn mini" onclick="copyDay()">⧉ 複製整天</button>
@@ -714,7 +731,7 @@ function renderDay(){
   const body=document.getElementById('dayBody');
   if(d.type==='cheat'){
     body.innerHTML=`<h2>🍔 放縱餐</h2><div class="muted" style="margin-bottom:10px">放縱日只要標熱量就好。</div>
-      <label class="fld"><span class="lb">當日熱量 (大卡)</span><input type="number" id="cheatK" value="${d.cheatKcal||''}" step="10" oninput="snapshot('${date}','cheatday');getDay('${date}').cheatKcal=parseFloat(this.value)||0;save();updateDayTotalCard()"</label>
+      <label class="fld"><span class="lb">當日熱量 (大卡)</span><input type="number" id="cheatK" value="${d.cheatKcal||''}" step="10" oninput="snapshot('${date}','cheatday');getDay('${date}').cheatKcal=parseFloat(this.value)||0;save();updateDayTotalCard()"></label>
       ${exerciseHTML(date)}
       <div id="dayTotalCard"></div>`;
     updateDayTotalCard();return;
@@ -844,7 +861,6 @@ function pasteDay(){snapshot(selDate);S.days[selDate]=JSON.parse(JSON.stringify(
 function copyMeal(mk){clip={kind:'meal',from:selDate.slice(5)+' '+mk,data:JSON.parse(JSON.stringify(getDay(selDate).meals[mk]))};renderDay();}
 function pasteMeal(mk){snapshot(selDate);getDay(selDate).meals[mk]=JSON.parse(JSON.stringify(clip.data));save();renderDay();}
 
-function setType(t){snapshot(selDate);getDay(selDate).type=t;save();renderMenu();}
 function addItem(mk){
   const v=document.getElementById('add-'+mk).value;if(!v)return;
   snapshot(selDate);getDay(selDate).meals[mk].push({id:v,serv:1});save();renderDay();
@@ -902,7 +918,7 @@ function updateDayTotalCard(){
   const tpl=dayTemplate(selDate);const s=sixGroups(tpl);
   const sum=tot.p*4+tot.f*9+tot.c*4||1;
   el.innerHTML=`<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
-    <div class="flexh"><b>當日合計</b><span class="muted">目標 ${tpl.kcal} 大卡（${d.type==='low'?'低熱量日':'正常日'}）</span></div>
+    <div class="flexh"><b>當日合計</b><span class="muted">目標 ${tpl.kcal} 大卡（${dayTplName(d)}）</span></div>
     <div class="center"><span class="kcalbig">${r0(tot.kcal)}</span> <span class="muted">大卡</span></div>
     ${netHTML}
     <div class="bar"><i class="iC" style="width:${tot.c*4/sum*100}%"></i><i class="iP" style="width:${tot.p*4/sum*100}%"></i><i class="iF" style="width:${tot.f*9/sum*100}%"></i></div>
@@ -1212,9 +1228,9 @@ function renderRecords(){
   for(let i=0;i<lead;i++)grid.innerHTML+='<div class="cell empty"></div>';
   for(let dnum=1;dnum<=daysIn;dnum++){
     const date=dstr(new Date(calMonth.getFullYear(),calMonth.getMonth(),dnum));
-    const d=S.days[date];const t=d?d.type:null;
+    const d=S.days[date];
     const tot=d?dayTotals(date):null;
-    const cls=t?t.charAt(0):'';const typeCls=t==='normal'?'n':t==='low'?'l':t==='cheat'?'c':'';
+    const typeCls=dayCls(d);
     const exIco=dayExIcons(d);
     grid.innerHTML+=`<div class="cell ${typeCls} ${date===todayStr()?'today':''} ${date===selDate?'sel':''}" onclick="pickRec('${date}')">
       <div class="cd">${dnum}</div>${exIco?`<div style="position:absolute;top:1px;right:2px;font-size:10px;line-height:1;letter-spacing:-1px">${exIco}</div>`:''}${tot&&tot.kcal?`<div class="ck">${r0(tot.kcal)}</div>`:''}</div>`;
@@ -1227,7 +1243,7 @@ function renderRecDetail(date){
   const d=S.days[date];const dt=parseD(date);
   if(!d){el.innerHTML=`<div class="flexh"><b>${date}（週${WD[dt.getDay()]}）</b><button class="btn sm" onclick="gotoDay('${date}')">去排這天 →</button></div><div class="emptybox">這天還沒有紀錄</div>`;return;}
   const tot=dayTotals(date);const burned=burnedOf(date);
-  const typeLb=d.type==='low'?'<span class="pill l">低熱量日</span>':d.type==='cheat'?'<span class="pill c">放縱日</span>':'<span class="pill n">正常日</span>';
+  const typeLb=`<span class="pill ${dayCls(d)}">${dayTplName(d)}</span>`;
   let html=`<div class="flexh"><b>${date}（週${WD[dt.getDay()]}）</b> ${typeLb}</div>`;
   html+=`<div class="center" style="margin:10px 0"><span class="kcalbig">${r0(tot.kcal)}</span> <span class="muted">大卡</span>${burned?` <span class="muted">· 運動 -${r0(burned)} · 淨 ${r0(tot.kcal-burned)}</span>`:''}</div>`;
   {const df=deficitOf(date);if(df!=null)html+=`<div class="center muted" style="margin-bottom:8px">今日${df>=0?'赤字':'盈餘'} <b style="color:${df>=0?'var(--grn-d)':'var(--red)'}">${r0(Math.abs(df))}</b> 大卡</div>`;}
@@ -1266,6 +1282,7 @@ function applyImport(obj){
   if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};
   if(!S.weights)S.weights=[];
   if(!S.cookDays)S.cookDays=[];
+  migrateTemplates();
   CUSTOM=S.custom||[];
   save();return true;
 }
@@ -1287,7 +1304,7 @@ function rerenderCurrent(){
 }
 window.addEventListener('storage',e=>{
   if(e.key==='dietApp'&&e.newValue){
-    try{S=JSON.parse(e.newValue);if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];if(!S.cookDays)S.cookDays=[];CUSTOM=S.custom||[];rerenderCurrent();}catch(_){}
+    try{S=JSON.parse(e.newValue);if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];if(!S.cookDays)S.cookDays=[];migrateTemplates();CUSTOM=S.custom||[];rerenderCurrent();}catch(_){}
   }
 });
 
@@ -1302,7 +1319,7 @@ const DEFAULT_FB_CONFIG={
   appId:"1:705276709874:web:1a00895f6fec033f20f96b"
 };
 let fbApp=null,fbAuth=null,fbDb=null,fbUser=null,fbUnsub=null,cloudTimer=null,cloudStatus='';
-function normalizeState(){if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];if(!S.cookDays)S.cookDays=[];CUSTOM=S.custom||[];}
+function normalizeState(){if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];if(!S.cookDays)S.cookDays=[];migrateTemplates();CUSTOM=S.custom||[];}
 function effectiveFbConfig(){
   const s=localStorage.getItem('fbConfig');
   if(s){try{const c=JSON.parse(s);if(c&&c.apiKey)return c;}catch(_){}}
@@ -1408,13 +1425,12 @@ function closeAcctMenu(){const m=document.getElementById('acctmenu');if(m)m.styl
 document.addEventListener('click',e=>{const m=document.getElementById('acctmenu');if(m&&m.style.display==='block'&&!e.target.closest('#acct'))m.style.display='none';});
 
 /* ============ 啟動 ============ */
-bindSetup();
 bindProfile();
 initFirebase();   // 有設定且有網路時啟用雲端同步
 renderSetup();
 // header 今日狀態
-(function(){const d=S.days[todayStr()];const t=d?d.type:'normal';
-  document.getElementById('hdrsub').textContent='今天 '+todayStr().slice(5)+' · '+(t==='low'?'低熱量日':t==='cheat'?'放縱日':'正常日');})();
+(function(){const d=S.days[todayStr()];
+  document.getElementById('hdrsub').textContent='今天 '+todayStr().slice(5)+' · '+dayTplName(d||{});})();
 </script>
 </body>
 </html>
