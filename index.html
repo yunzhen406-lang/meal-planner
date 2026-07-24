@@ -422,12 +422,13 @@ const DEF={
   },
   fav:{}, custom:[], days:{}, cats:[],
   profile:{sex:'F',age:'',height:'',weight:'',activity:1.2},
-  weights:[], goal:'',
+  weights:[], goal:'', cookDays:[],
 };
 let S=load();
 if(!S.cats)S.cats=[];
 if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};
 if(!S.weights)S.weights=[];
+if(!S.cookDays)S.cookDays=[];
 CUSTOM=S.custom||[];
 let onlyFav=false, activeCat='p';
 let selDate=todayStr();
@@ -727,6 +728,7 @@ function renderDay(){
      </div>`;
   MEALS.forEach(([mk,mlb,mic])=>{
     const items=d.meals[mk];
+    items.sort((a,b)=>itemSortKey(a)-itemSortKey(b)); // 同類排在一起
     let mkcal=0;items.forEach(it=>mkcal+=itemNut(it).kcal);
     html+=`<div class="meal"><div class="mh"><span class="mt">${mic} ${mlb} <span class="mk">${r0(mkcal)} 大卡</span></span>
       <span class="row" style="gap:4px">
@@ -810,6 +812,14 @@ function foodOptions(){
   return s;
 }
 function itemNut(it){if(it.cheat)return{p:0,f:0,c:0,kcal:+it.kcal||0};const f=foodById(it.id);if(!f)return{p:0,f:0,c:0,kcal:0};return nutOf(f,it.serv);}
+// 每餐內依食物類別排序：全穀→蛋白→蔬菜→水果→油脂→乳品→自建/外食→放縱餐
+const CAT_ORDER=['g','p','v','r','o','d'];
+function itemSortKey(it){
+  if(it.cheat)return 99;
+  const f=foodById(it.id);if(!f)return 98;
+  const c=catOf(f.g);const i=CAT_ORDER.indexOf(c);
+  if(i>=0)return i; if(c[0]==='u')return 90; return 91;
+}
 
 /* ---- 復原（任何菜單修改都可還原；同一欄位連續打字會併成一步）---- */
 let undoStack=[];let lastSnap={date:null,key:null,t:0};
@@ -863,6 +873,22 @@ function dayTotals(date){
   ['b','l','d'].forEach(mk=>(d.meals[mk]||[]).forEach(it=>{const n=itemNut(it);p+=n.p;f+=n.f;c+=n.c;k+=n.kcal;}));
   return{kcal:k,p,f,c};
 }
+// 當日各食物分類已排份數（外食/放縱不計份數）
+function daySixServings(date){
+  const d=S.days[date];const acc={r:0,v:0,g:0,p:0,o:0,d:0};
+  if(!d)return acc;
+  ['b','l','d'].forEach(mk=>(d.meals[mk]||[]).forEach(it=>{if(it.cheat)return;const f=foodById(it.id);if(!f)return;const c=catOf(f.g);if(acc[c]!==undefined)acc[c]+=it.serv;}));
+  return acc;
+}
+function sixServTable(date,s){
+  const cur=daySixServings(date);
+  const rows=[['🍎 水果','r',s.fruit],['🥬 蔬菜','v',s.veg],['🍚 全穀雜糧','g',s.grain],['🍗 豆魚蛋肉','p',s.prot],['🥜 油脂','o',s.oil]];
+  return `<div style="margin-top:12px"><div class="muted small" style="margin-bottom:3px">六大類份數（目前 / 目標）· 方便照類別分配</div>
+    <table><tr><th style="text-align:left">類別</th><th>目前</th><th>目標</th></tr>
+    ${rows.map(([nm,k,tg])=>{const c=r1(cur[k]),ok=tg>0&&c>=tg-0.05;
+      return `<tr><td class="name">${nm}</td><td style="font-weight:700;color:${ok?'var(--grn-d)':'var(--ink)'}">${c}</td><td class="muted">${tg}</td></tr>`;}).join('')}
+    </table></div>`;
+}
 function updateDayTotalCard(){
   const el=document.getElementById('dayTotalCard');if(!el)return;
   const d=getDay(selDate);const tot=dayTotals(selDate);const burned=burnedOf(selDate);
@@ -884,7 +910,9 @@ function updateDayTotalCard(){
       <div class="macro C"><div class="v">${r1(tot.c)}</div><div class="k">碳水 g / 目標${s.C}</div></div>
       <div class="macro P"><div class="v">${r1(tot.p)}</div><div class="k">蛋白 g / 目標${s.P}</div></div>
       <div class="macro F"><div class="v">${r1(tot.f)}</div><div class="k">脂肪 g / 目標${s.F}</div></div>
-    </div></div>`;
+    </div>
+    ${sixServTable(selDate,s)}
+    </div>`;
 }
 /* 自動排：只排指定的餐(targetMeals)，其他餐保留，並扣掉已排的份數 */
 function autoArrange(targetMeals){
@@ -928,6 +956,18 @@ function setPrepMode(m){prepRange.mode=m;
   if(m==='custom'&&!prepRange.start){prepRange.start=weekStart(selDate);prepRange.end=addDays(prepRange.start,6);}
   renderPrep();}
 function setPrepDate(which,v){prepRange[which]=v;renderPrep();}
+function toggleCookDay(wd){S.cookDays=S.cookDays||[];const i=S.cookDays.indexOf(wd);
+  if(i>=0)S.cookDays.splice(i,1);else S.cookDays.push(wd);save();renderPrep();}
+// 依煮飯日把區間切成批次（晚上煮：某天煮→供隔天起到下一個煮飯日含當天）
+// 沒設煮飯日就每 3 天一批。回傳 [{cook, days}]
+function batchDates(dates){
+  const cd=S.cookDays||[];
+  if(!cd.length){const out=[];for(let i=0;i<dates.length;i+=3)out.push({cook:null,days:dates.slice(i,i+3)});return out;}
+  const cookDateOf=ds=>{const d=parseD(ds);for(let i=0;i<8;i++){d.setDate(d.getDate()-1);if(cd.includes(d.getDay()))return dstr(d);}return ds;};
+  const order=[];const map={};
+  dates.forEach(dt=>{const ck=cookDateOf(dt);if(!map[ck]){map[ck]=[];order.push(ck);}map[ck].push(dt);});
+  return order.map(ck=>({cook:ck,days:map[ck]}));
+}
 function prepDates(){
   if(prepRange.mode==='week'){const ws=weekStart(selDate);const a=[];for(let i=0;i<7;i++)a.push(addDays(ws,i));return a;}
   let s=prepRange.start,e=prepRange.end;if(!s||!e)return [];
@@ -949,16 +989,25 @@ function renderPrep(){
         <span class="muted">～</span>
         <input type="date" value="${prepRange.end||''}" onchange="setPrepDate('end',this.value)">
       </div>`:
-      `<div class="center muted small">本週 ${ws.slice(5)} ～ ${addDays(ws,6).slice(5)}（共 7 天）</div>`}`;
+      `<div class="center muted small">本週 ${ws.slice(5)} ～ ${addDays(ws,6).slice(5)}（共 7 天）</div>`}
+    <div style="margin-top:10px">
+      <div class="muted small" style="margin-bottom:4px">🍳 煮飯日（午晚餐批次會照這個切；不選＝每3天一批）</div>
+      <div class="grpsel" style="padding-bottom:0">${[0,1,2,3,4,5,6].map(wd=>`<button class="${(S.cookDays||[]).includes(wd)?'on':''}" onclick="toggleCookDay(${wd})">週${WD[wd]}</button>`).join('')}</div>
+    </div>`;
   const el=document.getElementById('prepView');
   if(!dates.length){el.innerHTML='<div class="card"><div class="emptybox">請選有效的日期區間</div></div>';return;}
   if(prepViewMode==='shop'){el.innerHTML=renderShop(dates);return;}
-  // 備餐內容：午晚餐每 3 天一批 + 早餐
-  let html=`<div class="hint">午晚餐每 3 天煮一次，以下把同一批份量加總好；早餐簡單，前一晚準備即可。</div>`;
-  for(let i=0;i<dates.length;i+=3){
-    const chunk=dates.slice(i,i+3);
-    html+=renderBatch(chunk,'第'+(Math.floor(i/3)+1)+'批 · 午晚餐（'+chunk[0].slice(5)+' 起 '+chunk.length+' 天）');
-  }
+  // 備餐內容：依煮飯日切批次 + 早餐
+  const hint=(S.cookDays&&S.cookDays.length)?'午晚餐照你設的煮飯日一次煮好，以下依批次＋食物分類加總；早餐簡單，前一晚準備即可。':'午晚餐每 3 天煮一次（可在上方設固定煮飯日）；以下依批次＋食物分類加總。';
+  let html=`<div class="hint">${hint}</div>`;
+  const batches=batchDates(dates);
+  batches.forEach((b,i)=>{
+    const span=b.days.length>1?'（'+b.days[0].slice(5)+'～'+b.days[b.days.length-1].slice(5)+'）':'（'+b.days[0].slice(5)+'）';
+    const title=b.cook
+      ? '第'+(i+1)+'批 · 週'+WD[parseD(b.cook).getDay()]+' '+b.cook.slice(5)+' 晚上煮 → 供 '+b.days.length+' 天'+span
+      : '第'+(i+1)+'批 · '+b.days[0].slice(5)+' 起 '+b.days.length+' 天';
+    html+=renderBatch(b.days,title);
+  });
   html+=renderBreakfast(dates);
   el.innerHTML=html;
 }
@@ -972,18 +1021,27 @@ function aggDates(dates,mealKeys){
   });
   return map;
 }
+// 依食物分類分組呈現（備餐內容/採購共用）
+function groupByCatHTML(map,prefix){
+  const byCat={};
+  Object.values(map).forEach(({f,serv})=>{const c=catOf(f.g);(byCat[c]=byCat[c]||[]).push({f,serv});});
+  const order=['p','g','v','r','o','d','x'].concat(Object.keys(byCat).filter(c=>c[0]==='u'));
+  let s='';
+  order.forEach(c=>{if(!byCat[c])return;const m=catMeta(c);
+    s+=`<div class="small" style="margin:8px 0 3px;font-weight:700;color:var(--grn-d)">${m[0]} ${m[1]}</div>`;
+    s+=byCat[c].sort((a,b)=>b.serv-a.serv).map(({f,serv})=>
+      `<div class="shopline"><span>${f.brand?f.brand+' · ':''}${f.n}</span><span class="amt">${(prefix||'')+amtText(f,serv)}</span></div>`).join('');
+  });
+  return s;
+}
 function renderBatch(dates,title){
   const map=aggDates(dates,['l','d']);const keys=Object.keys(map);
-  let inner=keys.length?keys.map(k=>{const{f,serv}=map[k];
-    return `<div class="shopline"><span>${foodIc(f)} ${f.n}</span><span class="amt">${amtText(f,serv)}</span></div>`;
-  }).join(''):'<div class="emptybox">這批還沒排午晚餐</div>';
+  const inner=keys.length?groupByCatHTML(map):'<div class="emptybox">這批還沒排午晚餐</div>';
   return `<div class="prepcard"><div class="ph"><span>${title}</span></div>${inner}</div>`;
 }
 function renderBreakfast(dates){
   const map=aggDates(dates,['b']);const keys=Object.keys(map);
-  let inner=keys.length?keys.map(k=>{const{f,serv}=map[k];
-    return `<div class="shopline"><span>${foodIc(f)} ${f.n}</span><span class="amt">共 ${amtText(f,serv)}</span></div>`;
-  }).join(''):'<div class="emptybox">這區間還沒排早餐</div>';
+  const inner=keys.length?groupByCatHTML(map,'共 '):'<div class="emptybox">這區間還沒排早餐</div>';
   return `<div class="prepcard" style="border-color:var(--amb)"><div class="ph"><span>🌅 早餐（每日簡單備）</span></div>${inner}</div>`;
 }
 function renderShop(dates){
@@ -1207,6 +1265,7 @@ function applyImport(obj){
   if(!S.cats)S.cats=[];
   if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};
   if(!S.weights)S.weights=[];
+  if(!S.cookDays)S.cookDays=[];
   CUSTOM=S.custom||[];
   save();return true;
 }
@@ -1228,7 +1287,7 @@ function rerenderCurrent(){
 }
 window.addEventListener('storage',e=>{
   if(e.key==='dietApp'&&e.newValue){
-    try{S=JSON.parse(e.newValue);if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];CUSTOM=S.custom||[];rerenderCurrent();}catch(_){}
+    try{S=JSON.parse(e.newValue);if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];if(!S.cookDays)S.cookDays=[];CUSTOM=S.custom||[];rerenderCurrent();}catch(_){}
   }
 });
 
@@ -1243,7 +1302,7 @@ const DEFAULT_FB_CONFIG={
   appId:"1:705276709874:web:1a00895f6fec033f20f96b"
 };
 let fbApp=null,fbAuth=null,fbDb=null,fbUser=null,fbUnsub=null,cloudTimer=null,cloudStatus='';
-function normalizeState(){if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];CUSTOM=S.custom||[];}
+function normalizeState(){if(!S.cats)S.cats=[];if(!S.profile)S.profile={sex:'F',age:'',height:'',weight:'',activity:1.2};if(!S.weights)S.weights=[];if(!S.cookDays)S.cookDays=[];CUSTOM=S.custom||[];}
 function effectiveFbConfig(){
   const s=localStorage.getItem('fbConfig');
   if(s){try{const c=JSON.parse(s);if(c&&c.apiKey)return c;}catch(_){}}
