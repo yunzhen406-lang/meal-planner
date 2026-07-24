@@ -713,7 +713,7 @@ function renderDay(){
   const body=document.getElementById('dayBody');
   if(d.type==='cheat'){
     body.innerHTML=`<h2>🍔 放縱餐</h2><div class="muted" style="margin-bottom:10px">放縱日只要標熱量就好。</div>
-      <label class="fld"><span class="lb">當日熱量 (大卡)</span><input type="number" id="cheatK" value="${d.cheatKcal||''}" step="10" oninput="getDay('${date}').cheatKcal=parseFloat(this.value)||0;save();updateDayTotalCard()"></label>
+      <label class="fld"><span class="lb">當日熱量 (大卡)</span><input type="number" id="cheatK" value="${d.cheatKcal||''}" step="10" oninput="snapshot('${date}','cheatday');getDay('${date}').cheatKcal=parseFloat(this.value)||0;save();updateDayTotalCard()"</label>
       ${exerciseHTML(date)}
       <div id="dayTotalCard"></div>`;
     updateDayTotalCard();return;
@@ -722,8 +722,8 @@ function renderDay(){
   let html=`<div class="flexh" style="margin-bottom:8px"><h2 style="margin:0">📋 當日菜單</h2></div>
      <div class="row" style="margin-bottom:10px;gap:6px">
        <span class="muted small">✨ 自動排：</span>
-       <button class="btn sm sec" onclick="autoArrange(['l','d'])">午晚餐（留早餐）</button>
-       <button class="btn sm sec" onclick="autoArrange(['b','l','d'])">整天</button>
+       <button class="btn sm sec" onclick="autoArrangeEmpty()">排剩下沒排的</button>
+       <button class="btn sm sec" onclick="autoArrange(['b','l','d'])">整天重排</button>
      </div>`;
   MEALS.forEach(([mk,mlb,mic])=>{
     const items=d.meals[mk];
@@ -735,6 +735,16 @@ function renderDay(){
         ${clip&&clip.kind==='meal'?`<button class="btn mini" style="background:var(--grn-l);color:var(--grn-d)" onclick="pasteMeal('${mk}')">貼上</button>`:''}
       </span></div>`;
     items.forEach((it,idx)=>{
+      if(it.cheat){
+        html+=`<div class="fooditem" style="background:var(--red-l);border-radius:9px;padding:6px 9px;margin:2px 0">
+          <span style="width:20px">🍔</span>
+          <input class="fn" style="border:1px solid var(--line);border-radius:7px;padding:5px 7px;font-size:13.5px;background:#fff" value="${(it.name||'').replace(/"/g,'&quot;')}" placeholder="放縱餐（例：雞排）" onchange="editCheatName('${mk}',${idx},this.value)">
+          <input class="num" type="number" step="10" value="${it.kcal!=null&&it.kcal!==''?it.kcal:''}" placeholder="卡" onchange="editCheatKcal('${mk}',${idx},this.value)">
+          <span class="unitlb">卡</span>
+          <button class="del" onclick="delItem('${mk}',${idx})">✕</button>
+        </div>`;
+        return;
+      }
       const f=foodById(it.id);const nu=itemNut(it);const hasW=f&&f.w;
       html+=`<div class="fooditem">
         <span class="fn">${f?f.n:'?'}</span>
@@ -747,7 +757,8 @@ function renderDay(){
     });
     html+=`<div class="addbar">
       <select id="add-${mk}"><option value="">＋ 加入食材…</option>${foodOptions()}</select>
-      <button class="btn sm" onclick="addItem('${mk}')">加入</button></div></div>`;
+      <button class="btn sm" onclick="addItem('${mk}')">加入</button>
+      <button class="btn sm" style="background:var(--red-l);color:var(--red)" title="這餐只填熱量" onclick="addCheat('${mk}')">🍔 放縱餐</button></div></div>`;
   });
   html+=exerciseHTML(date);
   html+=`<div id="dayTotalCard"></div>`;
@@ -784,11 +795,11 @@ function addEx(){
   const type=document.getElementById('ex-type').value;
   const name=document.getElementById('ex-name').value.trim();
   const kc=document.getElementById('ex-kcal').value;
-  const d=getDay(selDate);d.ex=d.ex||[];
+  snapshot(selDate);const d=getDay(selDate);d.ex=d.ex||[];
   d.ex.push({type,name,kcal:kc===''?null:parseFloat(kc)});save();renderMenu();
 }
-function delEx(i){getDay(selDate).ex.splice(i,1);save();renderMenu();}
-function editExKcal(i,v){getDay(selDate).ex[i].kcal=v===''?null:parseFloat(v);save();renderDay();}
+function delEx(i){snapshot(selDate);getDay(selDate).ex.splice(i,1);save();renderMenu();}
+function editExKcal(i,v){const e=getDay(selDate).ex[i];if(!e)return;snapshot(selDate,'exk'+i);e.kcal=v===''?null:parseFloat(v);save();renderDay();}
 function foodOptions(){
   const favs=allFoods().filter(f=>S.fav[f.id]);
   const rest=allFoods().filter(f=>!S.fav[f.id]);
@@ -798,13 +809,17 @@ function foodOptions(){
   s+='<optgroup label="全部食材">'+rest.map(opt).join('')+'</optgroup>';
   return s;
 }
-function itemNut(it){const f=foodById(it.id);if(!f)return{p:0,f:0,c:0,kcal:0};return nutOf(f,it.serv);}
+function itemNut(it){if(it.cheat)return{p:0,f:0,c:0,kcal:+it.kcal||0};const f=foodById(it.id);if(!f)return{p:0,f:0,c:0,kcal:0};return nutOf(f,it.serv);}
 
-/* ---- 復原 ---- */
-let undoStack=[];
-function snapshot(date){
+/* ---- 復原（任何菜單修改都可還原；同一欄位連續打字會併成一步）---- */
+let undoStack=[];let lastSnap={date:null,key:null,t:0};
+function snapshot(date,key){
+  const now=Date.now();
+  // 只有「同一個欄位」連續編輯才合併；不同動作各自成一步
+  if(key&&lastSnap.date===date&&lastSnap.key===key&&now-lastSnap.t<1500){lastSnap.t=now;return;}
+  lastSnap={date,key:key||null,t:now};
   undoStack.push({date,data:S.days[date]?JSON.parse(JSON.stringify(S.days[date])):null});
-  if(undoStack.length>30)undoStack.shift();
+  if(undoStack.length>50)undoStack.shift();
 }
 function undo(){
   if(!undoStack.length)return;
@@ -822,13 +837,24 @@ function pasteMeal(mk){snapshot(selDate);getDay(selDate).meals[mk]=JSON.parse(JS
 function setType(t){snapshot(selDate);getDay(selDate).type=t;save();renderMenu();}
 function addItem(mk){
   const v=document.getElementById('add-'+mk).value;if(!v)return;
-  getDay(selDate).meals[mk].push({id:v,serv:1});save();renderDay();
+  snapshot(selDate);getDay(selDate).meals[mk].push({id:v,serv:1});save();renderDay();
 }
-function delItem(mk,idx){getDay(selDate).meals[mk].splice(idx,1);save();renderDay();}
-function editServ(mk,idx,val){getDay(selDate).meals[mk][idx].serv=r1(parseFloat(val)||0);save();renderDay();}
+function delItem(mk,idx){snapshot(selDate);getDay(selDate).meals[mk].splice(idx,1);save();renderDay();}
+function editServ(mk,idx,val){const it=getDay(selDate).meals[mk][idx];if(!it)return;snapshot(selDate,'serv'+mk+idx);it.serv=r1(parseFloat(val)||0);save();renderDay();}
 function editGram(mk,idx,val){
-  const it=getDay(selDate).meals[mk][idx];const f=foodById(it.id);
+  const it=getDay(selDate).meals[mk][idx];if(!it)return;snapshot(selDate,'gram'+mk+idx);const f=foodById(it.id);
   if(f&&f.w)it.serv=r1((parseFloat(val)||0)/f.w);save();renderDay();
+}
+/* ---- 單餐放縱餐（只填熱量）---- */
+function addCheat(mk){snapshot(selDate);getDay(selDate).meals[mk].push({cheat:true,name:'',kcal:''});save();renderDay();}
+function editCheatKcal(mk,idx,val){const it=getDay(selDate).meals[mk][idx];if(!it)return;snapshot(selDate,'ck'+mk+idx);it.kcal=val===''?'':parseFloat(val)||0;save();renderDay();}
+function editCheatName(mk,idx,val){const it=getDay(selDate).meals[mk][idx];if(!it)return;snapshot(selDate,'cn'+mk+idx);it.name=val;save();}
+/* ---- 只排還沒排的餐 ---- */
+function autoArrangeEmpty(){
+  const d=getDay(selDate);
+  const empty=['b','l','d'].filter(mk=>!(d.meals[mk]&&d.meals[mk].length));
+  if(!empty.length){alert('三餐都已經有內容了。若要重排請按「整天重排」，或按各餐的 ✨ 單獨重排。');return;}
+  autoArrange(empty);
 }
 function dayTotals(date){
   const d=S.days[date];if(!d)return{kcal:0,p:0,f:0,c:0};
@@ -1153,7 +1179,7 @@ function renderRecDetail(date){
       <div class="macro F"><div class="v">${r1(tot.f)}</div><div class="k">脂肪g</div></div></div>`;
     MEALS.forEach(([mk,mlb,mic])=>{const items=d.meals[mk]||[];if(!items.length)return;
       html+=`<div style="margin-top:10px"><b class="small">${mic} ${mlb}</b>`;
-      items.forEach(it=>{const f=foodById(it.id);html+=`<div class="shopline"><span>${f?f.n:'?'}</span><span class="amt">${it.serv}份 · ${r0(itemNut(it).kcal)}卡</span></div>`;});
+      items.forEach(it=>{if(it.cheat){html+=`<div class="shopline"><span>🍔 ${(it.name||'放縱餐').replace(/</g,'&lt;')}</span><span class="amt">${r0(itemNut(it).kcal)}卡</span></div>`;return;}const f=foodById(it.id);html+=`<div class="shopline"><span>${f?f.n:'?'}</span><span class="amt">${it.serv}份 · ${r0(itemNut(it).kcal)}卡</span></div>`;});
       html+='</div>';});
   }
   if(d.ex&&d.ex.length){
